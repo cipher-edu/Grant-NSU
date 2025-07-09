@@ -1,0 +1,135 @@
+{% extends "auth_app/base.html" %}
+{% load static %}
+
+{% block page_title %}Ariza #{{ application.id }} - Tafsilotlar{% endblock %}
+
+{% block content %}
+<div class="animate-fade-in space-y-8">
+    <!-- Orqaga qaytish va sahifa sarlavhasi -->
+    <div>
+        <a href="{% url 'grant_application_list' %}" class="inline-flex items-center text-sm font-semibold text-slate-600 hover:text-slate-800 mb-4 transition-colors">
+            <ion-icon name="arrow-back-outline" class="mr-2"></ion-icon>
+            Barcha arizalarga qaytish
+        </a>
+        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-800">Ariza #{{ application.id }} Tafsilotlari</h1>
+                <p class="mt-1 text-sm text-slate-500">{{ application.academic_year.year }} o'quv yili uchun {{ application.get_application_type_display }}</p>
+            </div>
+            <div class="mt-3 sm:mt-0">
+                {% include 'auth_app/grant_app/partials/_status_badge.html' with status_code=application.status status_display=application.get_status_display %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Asosiy ma'lumotlar kartasi -->
+    <div class="bg-white rounded-xl shadow-soft border border-slate-100 overflow-hidden">
+        <div class="p-6 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800">Umumiy Ma'lumotlar va Baholash Natijalari</h3>
+        </div>
+        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+            <!-- Chap ustun -->
+            <div class="space-y-4">
+                <div class="flex"><p class="data-label">Topshirilgan sana:</p><p class="data-value">{{ application.created_at|date:"d.m.Y, H:i" }}</p></div>
+                <div class="flex"><p class="data-label">GPA ko'rsatkichi:</p><p class="data-value">{{ application.gpa_from_hemis }}</p></div>
+                <div class="flex"><p class="data-label">Yakuniy Natija:</p>
+                    <p class="data-value font-bold {% if application.final_grant_type == 'FULL' or application.final_grant_type == 'PARTIAL' %}text-green-600{% elif application.final_grant_type == 'NONE'%}text-red-600{% else %}text-slate-800{% endif %}">
+                        {{ application.get_final_grant_type_display|default:"Ko'rib chiqilmoqda" }}
+                        {% if application.final_grant_percentage %}({{ application.final_grant_percentage }}%){% endif %}
+                    </p>
+                </div>
+            </div>
+            <!-- O'ng ustun -->
+            <div class="space-y-4">
+                <div class="flex"><p class="data-label">Akademik ball:</p><p class="data-value">{{ application.academic_score|floatformat:2|default:"-" }} / 80</p></div>
+                <div class="flex"><p class="data-label">Ijtimoiy ball:</p><p class="data-value">{{ application.social_activity_score|floatformat:2|default:"-" }} / 20</p></div>
+                <div class="flex items-center">
+                    <p class="data-label">Umumiy ball:</p>
+                    <p class="data-value font-extrabold text-2xl text-primary-600">{{ application.total_score|floatformat:2|default:"Baholanmagan" }} / 100</p>
+                </div>
+            </div>
+            <!-- Rad etish sababi (agar mavjud bo'lsa) -->
+            {% if application.rejection_reason %}
+            <div class="md:col-span-2 mt-2 pt-4 border-t border-slate-200">
+                <div class="flex"><p class="data-label text-red-600 font-semibold">Rad etish sababi:</p><p class="data-value text-red-700">{{ application.rejection_reason }}</p></div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Yuklangan Hujjatlar -->
+    <div class="bg-white rounded-xl shadow-soft border border-slate-100">
+        <div class="p-6 border-b border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800">Ilova qilingan hujjatlar</h3>
+        </div>
+        <div class="p-6">
+            {% if application.documents.all %}
+            <ul class="space-y-3">
+                {% for doc in application.documents.all %}
+                <li class="flex items-center justify-between p-3 bg-slate-50 rounded-lg transition-colors hover:bg-slate-100">
+                    <div class="flex items-center min-w-0">
+                        <ion-icon name="document-attach-outline" class="text-xl text-slate-500 mr-3 flex-shrink-0"></ion-icon>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-slate-800 truncate">{{ doc.description|default:"Hujjat" }}</p>
+                            <p class="text-xs text-slate-500">{{ doc.get_document_type_display }}</p>
+                        </div>
+                    </div>
+                    <a href="{{ doc.file.url }}" target="_blank" class="ml-4 flex-shrink-0 text-sm font-semibold text-primary-600 hover:text-primary-800 px-3 py-1.5 rounded-md hover:bg-primary-50">Yuklab olish</a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+                <p class="text-sm text-center text-slate-500 py-4">Ushbu arizaga hech qanday hujjat ilova qilinmagan.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Apellyatsiya Bo'limi -->
+    <div class="bg-white rounded-xl shadow-soft border border-slate-100">
+        <div class="p-6">
+            
+            {% comment %} Mavjud apellyatsiyani ko'rsatish {% endcomment %}
+            {% if application.appeal %}
+                <h3 class="text-lg font-semibold text-slate-800 mb-4">Apellyatsiya ma'lumotlari</h3>
+                <div class="space-y-4 p-4 border border-purple-200 bg-purple-50 rounded-lg">
+                    <div class="flex flex-col sm:flex-row"><p class="data-label">Apellyatsiya holati:</p><p class="data-value font-bold text-purple-700">{{ application.appeal.get_status_display }}</p></div>
+                    <div class="flex flex-col sm:flex-row"><p class="data-label">Berilgan sana:</p><p class="data-value">{{ application.appeal.submitted_at|date:"d.m.Y" }}</p></div>
+                    <div class="flex flex-col sm:flex-row"><p class="data-label">Apellyatsiya sababi:</p><p class="data-value whitespace-pre-wrap">{{ application.appeal.reason }}</p></div>
+                    
+                    {% if application.appeal.outcome %}
+                    <div class="pt-4 mt-4 border-t border-purple-200">
+                        <div class="flex flex-col sm:flex-row"><p class="data-label">Komissiya qarori:</p><p class="data-value font-bold text-lg {% if application.appeal.outcome == 'SATISFIED' %}text-green-600{% else %}text-red-600{% endif %}">{{ application.appeal.get_outcome_display }}</p></div>
+                        <div class="flex flex-col sm:flex-row"><p class="data-label">Komissiya izohi:</p><p class="data-value">{{ application.appeal.decision_comment|default:"Izoh qoldirilmagan" }}</p></div>
+                    </div>
+                    {% endif %}
+                </div>
+
+            {% comment %} Yangi apellyatsiya berish imkoniyatini ko'rsatish {% endcomment %}
+            {% elif application.is_appealable %}
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-slate-800">Ariza natijasidan norozimisiz?</h3>
+                    <p class="text-sm text-slate-500 mt-1">Nizomga muvofiq, siz ushbu qaror yuzasidan apellyatsiya berishingiz mumkin.</p>
+                    <a href="{% url 'appeal_create' application_pk=application.id %}" class="mt-4 inline-flex items-center justify-center px-5 py-2.5 bg-yellow-500 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-yellow-600 transition-colors">
+                        <ion-icon name="alert-circle-outline" class="text-xl mr-2"></ion-icon>
+                        Apellyatsiya berish
+                    </a>
+                </div>
+                
+            {% comment %} Apellyatsiya berish mumkin bo'lmagan holatlar uchun xabar {% endcomment %}
+            {% else %}
+                <div class="text-center">
+                    <h3 class="text-lg font-semibold text-slate-800">Apellyatsiya</h3>
+                    <p class="text-sm text-slate-500 mt-1">
+                        {% if application.status == 'APPEALED' %}
+                            Bu ariza bo'yicha apellyatsiya allaqachon berilgan.
+                        {% else %}
+                            Faqat yakuniy qaror (Tasdiqlangan yoki Rad etilgan) chiqqan arizalarga apellyatsiya berish mumkin.
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

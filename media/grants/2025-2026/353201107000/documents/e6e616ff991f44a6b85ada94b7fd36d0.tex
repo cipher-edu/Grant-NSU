@@ -1,0 +1,112 @@
+\documentclass{standalone}
+\usepackage{tikz}
+\usepackage{tikz-uml}
+\usepackage{fontspec}
+\setmainfont{Noto Serif} % Reliable font for LaTeX
+\usepackage{polyglossia}
+\setdefaultlanguage{uzbek}
+\begin{document}
+
+\begin{tikzpicture}
+    % Defining UML classes for each model
+    \umlclass[ x=0, y=12]{Student}{
+        username: CharField \\
+        student\_id\_number: CharField \\
+        full\_name\_api: CharField \\
+        avg\_gpa: CharField \\
+        social\_category\_name: CharField \\
+        created\_at: DateTimeField \\
+        updated\_at: DateTimeField \\
+    }{
+        get\_birth\_date\_display(): str
+    }
+
+    \umlclass[x=8, y=12]{GrantType}{
+        code: CharField \\
+        name: CharField \\
+        percentage\_covered: FloatField \\
+        is\_full: BooleanField \\
+        created\_at: DateTimeField \\
+        updated\_at: DateTimeField
+    }{}
+    
+    \umlclass[x=4, y=8]{GrantApplication}{
+        student: ForeignKey \\
+        grant\_type: ForeignKey \\
+        status: CharField \\
+        documents: JSONField \\
+        academic\_score: FloatField \\
+        social\_score: FloatField \\
+        total\_score: FloatField \\
+        created\_at: DateTimeField \\
+        updated\_at: DateTimeField
+    }{}
+    
+    \umlclass[x=0, y=4]{SocialActivity}{
+        code: CharField \\
+        name: CharField \\
+        max\_score: FloatField \\
+        description: TextField
+    }{}
+    
+    \umlclass[x=8, y=4]{SocialActivityDocument}{
+        application: ForeignKey \\
+        activity: ForeignKey \\
+        document\_url: URLField \\
+        document\_type: CharField \\
+        description: TextField \\
+        uploaded\_at: DateTimeField
+    }{}
+    
+    \umlclass[x=4, y=0]{SocialActivityScore}{
+        application: ForeignKey \\
+        activity: ForeignKey \\
+        score: FloatField \\
+        comments: TextField \\
+        evaluated\_by: ForeignKey \\
+        evaluated\_at: DateTimeField
+    }{}
+    
+    \umlclass[x=12, y=8]{Evaluation}{
+        application: ForeignKey \\
+        evaluator: ForeignKey \\
+        academic\_score: FloatField \\
+        social\_score: FloatField \\
+        comments: TextField \\
+        evaluated\_at: DateTimeField
+    }{}
+    
+    \umlclass[x=12, y=4]{ApplicationStage}{
+        application: ForeignKey \\
+        stage: CharField \\
+        status: CharField \\
+        completed\_at: DateTimeField \\
+        comments: TextField
+    }{}
+    
+    \umlclass[x=8, y=0]{Appeal}{
+        application: ForeignKey \\
+        reason: TextField \\
+        status: CharField \\
+        reviewed\_by: ForeignKey \\
+        reviewed\_at: DateTimeField \\
+        response: TextField
+    }{}
+    
+    % Relationships
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{Student}{GrantApplication}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{GrantType}{GrantApplication}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{GrantApplication}{SocialActivityDocument}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{SocialActivity}{SocialActivityDocument}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{GrantApplication}{SocialActivityScore}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{SocialActivity}{SocialActivityScore}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{GrantApplication}{Evaluation}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{GrantApplication}{ApplicationStage}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=1, arg2=*, mult1=1, mult2=*]{GrantApplication}{Appeal}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=*, arg2=*, mult1=*, mult2=*]{User}{SocialActivityScore}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=*, arg2=*, mult1=*, mult2=*]{User}{Evaluation}
+    \umluniassoc[geometry=|-|, anchor1=south, anchor2=north, arg1=*, arg2=*, mult1=*, mult2=*]{User}{Appeal}
+
+\end{tikzpicture}
+
+\end{document}

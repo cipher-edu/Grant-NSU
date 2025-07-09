@@ -1,0 +1,43 @@
+<div class="bg-white rounded-xl shadow-soft border border-slate-100 p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+    <div class="flex flex-col sm:flex-row sm:justify-between">
+        <!-- Asosiy ma'lumotlar -->
+        <div>
+            <div class="flex items-center mb-2">
+                <span class="text-sm font-semibold text-primary-700 bg-primary-100 px-3 py-1 rounded-full">{{ application.get_application_type_display }}</span>
+                <span class="text-sm text-slate-500 ml-3">{{ application.created_at|date:"d.m.Y H:i" }}</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">
+                <a href="{% url 'grant_application_detail' pk=application.id %}" class="hover:text-primary-600 transition-colors">
+                    Ariza #{{ application.id }} - {{ application.academic_year.year }} o'quv yili
+                </a>
+            </h3>
+        </div>
+        <!-- Status va tugma -->
+        <div class="mt-4 sm:mt-0 sm:text-right flex-shrink-0">
+            {% include 'auth_app/grant_app/partials/_status_badge.html' with status_code=application.status status_display=application.get_status_display %}
+            <div class="mt-3">
+                <a href="{% url 'grant_application_detail' pk=application.id %}" class="text-sm font-semibold text-primary-600 hover:text-primary-800">Batafsil ko'rish <span aria-hidden="true">→</span></a>
+            </div>
+        </div>
+    </div>
+    <!-- Qo'shimcha ma'lumotlar -->
+    <div class="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:space-x-8 space-y-3 sm:space-y-0 text-sm">
+        <div class="flex items-center">
+            <ion-icon name="school-outline" class="text-slate-400 text-xl mr-2"></ion-icon>
+            <span class="font-medium text-slate-600">GPA:</span>
+            <span class="font-bold text-slate-800 ml-1">{{ application.gpa_from_hemis|default:"N/A" }}</span>
+        </div>
+        <div class="flex items-center">
+            <ion-icon name="calculator-outline" class="text-slate-400 text-xl mr-2"></ion-icon>
+            <span class="font-medium text-slate-600">Umumiy Ball:</span>
+            <span class="font-bold text-slate-800 ml-1">{{ application.total_score|default:"Baholanmagan" }}</span>
+        </div>
+        <div class="flex items-center">
+            <ion-icon name="trophy-outline" class="text-slate-400 text-xl mr-2"></ion-icon>
+            <span class="font-medium text-slate-600">Yakuniy Natija:</span>
+            <span class="font-bold ml-1 {% if application.final_grant_type == 'FULL' or application.final_grant_type == 'PARTIAL' %}text-green-600{% elif application.final_grant_type == 'NONE'%}text-red-600{% else %}text-slate-800{% endif %}">
+                {{ application.get_final_grant_type_display|default:"Ko'rib chiqilmoqda" }}
+            </span>
+        </div>
+    </div>
+</div>
