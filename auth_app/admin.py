@@ -249,7 +249,7 @@ class ApplicationDocumentInline(admin.TabularInline):
     extra = 0
     # Komissiya uchun eng kerakli ma'lumotlar
     fields = ('evaluation_criterion', 'description', 'file_link')
-    readonly_fields = ('evaluation_criterion', 'description', 'file_link')
+    readonly_fields = ('description', 'file_link')  # evaluation_criterion is now editable
     verbose_name = "Talaba tomonidan yuklangan hujjat"
     verbose_name_plural = "Talaba tomonidan yuklangan hujjatlar"
 
@@ -299,7 +299,37 @@ class SocialActivityEvaluationInline(admin.StackedInline):
     def final_score_display(self, obj):
         return f"{obj.final_score:.2f}"
 
-    # formni saqlashdan oldin baholovchini belgilash
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        max_points = {
+            'reading_culture_points': SocialActivityEvaluation.MAX_POINTS_READING,
+            'five_initiatives_points': SocialActivityEvaluation.MAX_POINTS_INITIATIVES,
+            'academic_progress_bonus_points': SocialActivityEvaluation.MAX_POINTS_ACADEMIC_BONUS,
+            'ethics_adherence_points': SocialActivityEvaluation.MAX_POINTS_ETHICS,
+            'competition_results_points': SocialActivityEvaluation.MAX_POINTS_COMPETITION,
+            'attendance_points': SocialActivityEvaluation.MAX_POINTS_ATTENDANCE,
+            'enlightenment_lessons_points': SocialActivityEvaluation.MAX_POINTS_ENLIGHTENMENT,
+            'volunteering_points': SocialActivityEvaluation.MAX_POINTS_VOLUNTEERING,
+            'cultural_events_points': SocialActivityEvaluation.MAX_POINTS_CULTURAL,
+            'sports_lifestyle_points': SocialActivityEvaluation.MAX_POINTS_SPORTS,
+            'other_activities_points': SocialActivityEvaluation.MAX_POINTS_OTHER,
+        }
+        orig_clean = getattr(formset.form, 'clean', None)
+        def clean_with_max(self):
+            if orig_clean:
+                cleaned = orig_clean(self)
+            else:
+                cleaned = self.cleaned_data
+            for field, max_val in max_points.items():
+                if field in self.fields and field in self.cleaned_data:
+                    value = self.cleaned_data.get(field)
+                    if value is not None and value > max_val:
+                        from django.core.exceptions import ValidationError
+                        self.add_error(field, f"{field.replace('_', ' ').capitalize()} uchun maksimal ball: {max_val}")
+            return cleaned
+        formset.form.clean = clean_with_max
+        return formset
+
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
         for instance in instances:
@@ -382,6 +412,16 @@ class GrantApplicationAdmin(admin.ModelAdmin):
     def _update_status(self, request, queryset, status):
         updated_count = queryset.update(status=status)
         status_display = GrantApplication.ApplicationStatus(status).label
+        # Bildirishnoma yaratish: har bir ariza uchun
+        from .models import Notification
+        for app in queryset:
+            if hasattr(app.student, 'user') and app.student.user:
+                Notification.objects.create(
+                    recipient=app.student.user,
+                    verb=Notification.NotificationVerb.STATUS_CHANGED,
+                    description=f"Sizning grant arizangiz holati: '{status_display}' ga o'zgardi.",
+                    target=app
+                )
         self.message_user(request, f"{updated_count} ta ariza holati '{status_display}' ga o'zgartirildi.", messages.SUCCESS)
 
     @admin.action(description="Holatni 'Maxsus komissiyaga yuborish'")
@@ -438,9 +478,16 @@ class AppealAdmin(admin.ModelAdmin):
     )
     
     def save_model(self, request, obj, form, change):
-        if 'outcome' in form.changed_data and form.cleaned_data['outcome'] and not obj.reviewed_by:
-            obj.reviewed_by = request.user
+        from .models import Notification
         super().save_model(request, obj, form, change)
+        # Faqat yangilangan (change=True) va foydalanuvchi mavjud bo'lsa
+        if change and hasattr(obj, 'student') and obj.student and hasattr(obj.student, 'user') and obj.student.user:
+            Notification.objects.create(
+                recipient=obj.student.user,
+                verb=Notification.NotificationVerb.STATUS_CHANGED,
+                description=f"Sizning grant arizangizda o'zgarishlar qilindi.",
+                target=obj
+            )
 
     @admin.display(description="Asosiy Ariza", ordering='application__id')
     def application_link(self, obj):

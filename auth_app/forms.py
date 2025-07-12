@@ -31,7 +31,7 @@ class LoginForm(forms.Form):
 # grant_app/forms.py
 
 from django import forms
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, BaseInlineFormSet
 from .models import GrantApplication, ApplicationDocument, Appeal, AppealDocument, AcademicYear
 
 class GrantApplicationForm(forms.ModelForm):
@@ -70,11 +70,37 @@ class ApplicationDocumentForm(forms.ModelForm):
             'file': "Faylni tanlang"
         }
 
+class ApplicationDocumentBaseFormSet(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        seen = set()
+        duplicates = set()
+        for form in self.forms:
+            if self.can_delete and form.cleaned_data.get('DELETE', False):
+                continue
+            criterion = form.cleaned_data.get('evaluation_criterion')
+            if not criterion:
+                continue
+            if criterion in seen and criterion != 'OTHER':
+                duplicates.add(criterion)
+            seen.add(criterion)
+        if duplicates:
+            from django.core.exceptions import ValidationError
+            # Add a non-field error for the whole formset (shows at the top)
+            self._non_form_errors = self.non_form_errors()  # ensure property exists
+            self._non_form_errors.append(
+                "❗️ Xatolik: Bir mezon uchun bir martadan ortiq hujjat yuklab bo'lmaydi. Iltimos, mezonlarni takrorlamang!"
+            )
+            raise ValidationError(
+                "❗️ Xatolik: Bir mezon uchun bir martadan ortiq hujjat yuklab bo'lmaydi. Iltimos, mezonlarni takrorlamang!"
+            )
+
 # FormSet o'zgarishsiz qoladi, u formadan avtomatik oladi.
 ApplicationDocumentFormSet = inlineformset_factory(
     GrantApplication,
     ApplicationDocument,
     form=ApplicationDocumentForm,
+    formset=ApplicationDocumentBaseFormSet,  # <-- custom formset
     extra=1,
     can_delete=True,
     min_num=1, # Kamida bitta hujjat yuklashni majburiy qilish

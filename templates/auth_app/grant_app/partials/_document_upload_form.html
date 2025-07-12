@@ -1,0 +1,90 @@
+{% comment %}
+Hujjat yuklash formi: Ijtimoiy faollik tanlanganda, har bir mezon uchun faqat bitta fayl biriktirish mumkin.
+Tanlangan mezonlar boshqa fayl formalarida ko'rinmaydi va tanlab bo'lmaydi (disabled).
+{% endcomment %}
+
+<div id="document-upload-section">
+    <template id="document-form-template">
+        <div class="document-form p-4 border border-slate-200 rounded-lg relative transition-all mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Hujjat qaysi mezonga oid?</label>
+                    <select name="evaluation_criterion" class="form-input criterion-select">
+                        {% for value, label in criteria_choices %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Hujjat tavsifi</label>
+                    <input type="text" name="description" class="form-input" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Faylni tanlang</label>
+                    <input type="file" name="file" class="form-input" />
+                </div>
+            </div>
+            <button type="button" class="remove-document-form mt-2 text-xs text-red-600">O'chirish</button>
+        </div>
+    </template>
+    <div id="document-forms-list"></div>
+    <button type="button" id="add-document-form" class="mt-4 px-4 py-2 bg-primary-600 text-white rounded">Yangi hujjat qo'shish</button>
+</div>
+
+<script>
+const criteriaChoices = JSON.parse('{{ criteria_choices_json|escapejs }}');
+let usedCriteria = [];
+
+function updateCriteriaOptions() {
+    document.querySelectorAll('.criterion-select').forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = '';
+        Object.entries(criteriaChoices).forEach(([value, label]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            if (usedCriteria.includes(value) && value !== currentValue) {
+                option.disabled = true;
+                option.textContent += ' (tanlangan)';
+            }
+            if (value === currentValue) option.selected = true;
+            select.appendChild(option);
+        });
+    });
+}
+
+function refreshUsedCriteria() {
+    usedCriteria = Array.from(document.querySelectorAll('.criterion-select')).map(s => s.value);
+}
+
+function addDocumentForm() {
+    const template = document.getElementById('document-form-template');
+    const clone = template.content.cloneNode(true);
+    document.getElementById('document-forms-list').appendChild(clone);
+    refreshUsedCriteria();
+    updateCriteriaOptions();
+}
+
+document.getElementById('add-document-form').addEventListener('click', () => {
+    addDocumentForm();
+});
+
+document.getElementById('document-forms-list').addEventListener('change', function(e) {
+    if (e.target.classList.contains('criterion-select')) {
+        refreshUsedCriteria();
+        updateCriteriaOptions();
+    }
+});
+
+document.getElementById('document-forms-list').addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-document-form')) {
+        e.target.closest('.document-form').remove();
+        refreshUsedCriteria();
+        updateCriteriaOptions();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    addDocumentForm();
+});
+</script>

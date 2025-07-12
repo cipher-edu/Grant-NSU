@@ -56,6 +56,8 @@ class GrantApplicationViewSet(viewsets.ModelViewSet):
     """
     serializer_class = GrantApplicationSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def get_queryset(self):
         # request.user bu yerda Django'ning standart User modeli bo'lishi mumkin.
@@ -77,6 +79,8 @@ class AppealViewSet(viewsets.ReadOnlyModelViewSet):
     """Apellyatsiyalarni ko'rish uchun API."""
     serializer_class = AppealSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def get_queryset(self):
         student = getattr(self.request, 'current_student', None)
@@ -99,6 +103,8 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     """
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     def get_queryset(self):
         """Faqat autentifikatsiyadan o'tgan foydalanuvchining bildirishnomalarini qaytaradi."""
@@ -111,7 +117,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'])
-    def mark_as_read(self, request, pk=None):
+    def mark_as_read(self, request, id=None):
         """Bitta bildirishnomani o'qilgan deb belgilaydi."""
         notification = self.get_object()
         notification.read = True

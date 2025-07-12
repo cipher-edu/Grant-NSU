@@ -305,23 +305,21 @@
 <body class="flex flex-col min-h-screen pt-16 sm:pt-20">
 
     <!-- Header/Navigation -->
-    <!-- Header/Navigation -->
     <header x-data="{ mobileMenuOpen: false, userMenuOpen: false, isScrolled: false }" 
             @scroll.window="isScrolled = (window.pageYOffset > 10)"
-            class="navbar-sticky"
+            class="navbar-sticky shadow-sm bg-white/95 backdrop-blur-lg border-b border-slate-200/80"
             :class="{ 'navbar-scrolled': isScrolled }">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16 sm:h-20">
                 <!-- Logo -->
-                <div class="flex items-center">
-                    <a href="{% url 'home' %}" class="flex items-center group">
-                        <ion-icon name="logo-electron" class="text-3xl sm:text-4xl mr-2 text-primary-600 group-hover:text-primary-500 transition-colors"></ion-icon>
-                        <span class="text-2xl sm:text-3xl font-bold font-serif text-slate-900">NSU Anti Korrupsiya </span>
-                    </a>
-                </div>
-                
+                <a href="{% url 'home' %}" class="flex items-center group focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-0">
+                    <img src="https://nsuni.uz/assets/logobluefull-Cet2BLY6.png"
+                         alt="NSU Grant logo"
+                         class="h-8 w-auto sm:h-10 md:h-12 mr-2 transition-all duration-200 object-contain max-w-[120px] sm:max-w-[160px] md:max-w-[200px] flex-shrink-0" />
+                    <span class="truncate text-lg sm:text-xl md:text-2xl font-bold font-serif text-slate-900 whitespace-nowrap">NSU Grant</span>
+                </a>
                 <!-- Desktop Navigation -->
-                <div class="hidden md:flex items-center space-x-1">
+                <div class="hidden md:flex items-center space-x-1 ml-8">
                     <a href="{% url 'home' %}" class="nav-link-desktop {% if request.resolver_match.url_name == 'home' %}nav-link-active{% endif %}">
                         <ion-icon name="home-outline" class="text-xl"></ion-icon>
                         <span class="ml-1.5">Bosh sahifa</span>
@@ -337,176 +335,162 @@
                     </a>
                     {% endif %}
                 </div>
-                
-                <!-- O'ng tomondagi elementlar: Bildirishnomalar va User Menu -->
-                <div class="flex items-center">
-                    <div class="hidden md:flex items-center">
-                        {% if request.session.api_token and request.session.student_db_id %}
-                            <!-- YANGI QO'SHILGAN BILDirishNOMALAR BLOKI -->
-                            <!-- Notifications Bell -->
-                            <div x-data="notifications()" x-init="init()" class="relative">
-                                <button @click="open = !open" class="relative p-2 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
-                                    <span class="sr-only">Bildirishnomalar</span>
-                                    <ion-icon name="notifications-outline" class="h-6 w-6"></ion-icon>
-                                    <span x-show="unreadCount > 0"
-                                          class="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"
-                                          x-cloak></span>
-                                </button>
-                            
-                                <!-- Dropdown Panel -->
-                                <div x-show="open" @click.outside="open = false"
-                                     x-transition:enter="transition ease-out duration-200"
-                                     x-transition:enter-start="opacity-0 translate-y-2"
-                                     x-transition:enter-end="opacity-100 translate-y-0"
-                                     x-transition:leave="transition ease-in duration-150"
-                                     x-transition:leave-start="opacity-100 translate-y-0"
-                                     x-transition:leave-end="opacity-0 translate-y-2"
-                                     class="origin-top-right absolute right-0 mt-2 w-80 max-w-sm rounded-lg shadow-lg bg-white ring-1 ring-slate-200 focus:outline-none z-50" x-cloak>
-                                    <div class="p-3 border-b border-slate-200 flex justify-between items-center">
-                                        <h3 class="font-semibold text-slate-800">Bildirishnomalar</h3>
-                                        <button @click="markAllAsRead()" class="text-xs font-medium text-primary-600 hover:underline" :disabled="unreadCount === 0">Barchasini o'qish</button>
-                                    </div>
-                                    <div class="max-h-96 overflow-y-auto">
-                                        <template x-for="notification in notifications" :key="notification.id">
-                                            <a href="#" @click.prevent="goToNotification(notification)"
-                                               class="block p-3 hover:bg-slate-50 border-b border-slate-100"
-                                               :class="{ 'font-semibold bg-primary-50': !notification.read }">
-                                                <p class="text-sm text-slate-800" x-text="notification.description"></p>
-                                                <time class="text-xs text-slate-500 mt-1" x-text="timeAgo(notification.timestamp)"></time>
-                                            </a>
-                                        </template>
-                                        <div x-show="notifications.length === 0" class="text-center py-10 text-sm text-slate-500">
-                                            <p>Hozircha yangi bildirishnomalar yo'q.</p>
-                                        </div>
+                <!-- Right Side: Notifications & User -->
+                <div class="flex items-center space-x-2">
+                    {% if request.session.api_token and request.session.student_db_id %}
+                        <!-- Notifications -->
+                        <div x-data="notifications()" x-init="init()" class="relative">
+                            <button @click="open = !open" class="relative p-2 rounded-full text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors" aria-label="Bildirishnomalar">
+                                <ion-icon name="notifications-outline" class="h-6 w-6"></ion-icon>
+                                <span x-show="unreadCount > 0" class="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" x-cloak></span>
+                            </button>
+                            <!-- Dropdown Panel -->
+                            <div x-show="open" @click.outside="open = false"
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 translate-y-2"
+                                 x-transition:enter-end="opacity-100 translate-y-0"
+                                 x-transition:leave="transition ease-in duration-150"
+                                 x-transition:leave-start="opacity-100 translate-y-0"
+                                 x-transition:leave-end="opacity-0 translate-y-2"
+                                 class="origin-top-right absolute right-0 mt-2 w-80 max-w-sm rounded-lg shadow-lg bg-white ring-1 ring-slate-200 focus:outline-none z-50" x-cloak>
+                                <div class="p-3 border-b border-slate-200 flex justify-between items-center">
+                                    <h3 class="font-semibold text-slate-800 flex items-center">
+                                        <ion-icon name="notifications-outline" class="mr-2 text-primary-600 text-lg align-middle"></ion-icon>
+                                        <span>Bildirishnomalar</span>
+                                        <span x-show="unreadCount > 0" class="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white animate-pulse" x-text="unreadCount" x-cloak></span>
+                                    </h3>
+                                    <button @click="markAllAsRead()" class="text-xs font-medium text-primary-600 hover:underline" :disabled="unreadCount === 0">Barchasini o'qish</button>
+                                </div>
+                                <div class="max-h-96 overflow-y-auto">
+                                    <template x-for="notification in notifications" :key="notification.id">
+                                        <a href="#" @click.prevent="goToNotification(notification)"
+                                           class="block p-3 hover:bg-slate-50 border-b border-slate-100"
+                                           :class="{ 'font-semibold bg-primary-50': !notification.read }">
+                                            <p class="text-sm text-slate-800" x-text="notification.description"></p>
+                                            <time class="text-xs text-slate-500 mt-1" x-text="timeAgo(notification.timestamp)"></time>
+                                        </a>
+                                    </template>
+                                    <div x-show="notifications.length === 0" class="text-center py-10 text-sm text-slate-500">
+                                        <p>Hozircha yangi bildirishnomalar yo'q.</p>
                                     </div>
                                 </div>
                             </div>
-                            <!-- BILDirishNOMALAR BLOKI TUGADI -->
-
-                            <!-- User Menu -->
-                            <div class="ml-3 relative">
-                                <button @click="userMenuOpen = !userMenuOpen" type="button" 
-                                        class="max-w-xs bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
-                                    <span class="sr-only">Foydalanuvchi menyusini ochish</span>
-                                    <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary-600 text-white">
-                                        <span class="text-sm font-medium leading-none">
-                                            {{ request.session.username_display|default:"U"|first|upper }}
-                                        </span>
+                        </div>
+                        <!-- User Menu -->
+                        <div class="ml-1 relative">
+                            <button @click="userMenuOpen = !userMenuOpen" type="button" 
+                                    class="max-w-xs bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
+                                    aria-label="Foydalanuvchi menyusini ochish">
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-primary-600 text-white">
+                                    <span class="text-sm font-medium leading-none">
+                                        {{ request.session.username_display|default:"U"|first|upper }}
                                     </span>
-                                </button>
-                                
-                                <!-- User Dropdown -->
-                                <div x-show="userMenuOpen" @click.outside="userMenuOpen = false"
-                                     x-transition:enter="transition ease-out duration-100"
-                                     x-transition:enter-start="opacity-0 scale-95"
-                                     x-transition:enter-end="opacity-100 scale-100"
-                                     x-transition:leave="transition ease-in duration-75"
-                                     x-transition:leave-start="opacity-100 scale-100"
-                                     x-transition:leave-end="opacity-0 scale-95"
-                                     class="origin-top-right absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-slate-200 focus:outline-none py-1.5 z-50" x-cloak>
-                                    <div class="px-4 py-2 border-b border-slate-100">
-                                        <p class="text-xs text-slate-500">Kirgan foydalanuvchi:</p>
-                                        <p class="text-sm font-semibold text-slate-900 truncate">
-                                            {{ request.session.username_display|default:"Foydalanuvchi" }}
-                                        </p>
-                                    </div>
-                                    <a href="{% url 'dashboard' %}" class="user-menu-item">
-                                        <ion-icon name="speedometer-outline" class="mr-2.5"></ion-icon>
-                                        Boshqaruv paneli
-                                    </a>
-                                    <a href="{% url 'grant_application_list' %}" class="user-menu-item">
-                                        <ion-icon name="school-outline" class="mr-2.5"></ion-icon>
-                                        Mening Arizalarim
-                                    </a>
-                                    
-                                    <a href="{% url 'logout' %}" class="user-menu-item text-red-600 hover:bg-red-50 hover:text-red-700">
-                                        <ion-icon name="log-out-outline" class="mr-2.5"></ion-icon>
-                                        Chiqish
-                                    </a>
+                                </span>
+                            </button>
+                            <!-- User Dropdown -->
+                            <div x-show="userMenuOpen" @click.outside="userMenuOpen = false"
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="opacity-0 scale-95"
+                                 x-transition:enter-end="opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="opacity-100 scale-100"
+                                 x-transition:leave-end="opacity-0 scale-95"
+                                 class="origin-top-right absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-slate-200 focus:outline-none py-1.5 z-50" x-cloak>
+                                <div class="px-4 py-2 border-b border-slate-100">
+                                    <p class="text-xs text-slate-500">Kirgan foydalanuvchi:</p>
+                                    <p class="text-sm font-semibold text-slate-900 truncate">
+                                        {{ request.session.username_display|default:"Foydalanuvchi" }}
+                                    </p>
                                 </div>
+                                <a href="{% url 'dashboard' %}" class="user-menu-item">
+                                    <ion-icon name="speedometer-outline" class="mr-2.5"></ion-icon>
+                                    Boshqaruv paneli
+                                </a>
+                                <a href="{% url 'grant_application_list' %}" class="user-menu-item">
+                                    <ion-icon name="school-outline" class="mr-2.5"></ion-icon>
+                                    Mening Arizalarim
+                                </a>
+                                <a href="{% url 'logout' %}" class="user-menu-item text-red-600 hover:bg-red-50 hover:text-red-700">
+                                    <ion-icon name="log-out-outline" class="mr-2.5"></ion-icon>
+                                    Chiqish
+                                </a>
                             </div>
-                        {% else %}
-                            <a href="{% url 'login' %}" class="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                                Kirish
-                            </a>
-                        {% endif %}
-                    </div>
-                    
+                        </div>
+                    {% else %}
+                        <a href="{% url 'login' %}" class="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                            Kirish
+                        </a>
+                    {% endif %}
                     <!-- Mobile Menu Button -->
                     <div class="-mr-2 flex md:hidden">
                         <button @click="mobileMenuOpen = !mobileMenuOpen" type="button" 
-                                class="ml-2 bg-transparent p-2 inline-flex items-center justify-center rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors">
-                            <span class="sr-only">Asosiy menyuni ochish</span>
+                                class="ml-2 bg-transparent p-2 inline-flex items-center justify-center rounded-md text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors"
+                                aria-label="Asosiy menyuni ochish">
                             <ion-icon :name="mobileMenuOpen ? 'close-sharp' : 'menu-sharp'" class="h-6 w-6"></ion-icon>
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- Mobile Menu -->
-        <div class="md:hidden" x-show="mobileMenuOpen" @click.away="mobileMenuOpen = false" x-cloak
-             x-transition:enter="transition ease-out duration-200 origin-top"
-             x-transition:enter-start="opacity-0 scale-y-90"
-             x-transition:enter-end="opacity-100 scale-y-100"
-             x-transition:leave="transition ease-in duration-150 origin-top"
-             x-transition:leave-start="opacity-100 scale-y-100"
-             x-transition:leave-end="opacity-0 scale-y-90">
-            <div class="pt-2 pb-3 space-y-1 px-2 sm:px-3">
-                <a href="{% url 'home' %}" class="nav-link-mobile {% if request.resolver_match.url_name == 'home' %}nav-link-mobile-active{% endif %}">
-                    Bosh sahifa
-                </a>
+            <!-- Mobile Menu -->
+            <div class="md:hidden" x-show="mobileMenuOpen" @click.away="mobileMenuOpen = false" x-cloak
+                 x-transition:enter="transition ease-out duration-200 origin-top"
+                 x-transition:enter-start="opacity-0 scale-y-90"
+                 x-transition:enter-end="opacity-100 scale-y-100"
+                 x-transition:leave="transition ease-in duration-150 origin-top"
+                 x-transition:leave-start="opacity-100 scale-y-100"
+                 x-transition:leave-end="opacity-0 scale-y-90">
+                <div class="pt-2 pb-3 space-y-1 px-2 sm:px-3">
+                    <a href="{% url 'home' %}" class="nav-link-mobile {% if request.resolver_match.url_name == 'home' %}nav-link-mobile-active{% endif %}">
+                        Bosh sahifa
+                    </a>
+                    {% if request.session.api_token and request.session.student_db_id %}
+                    <a href="{% url 'dashboard' %}" class="nav-link-mobile {% if request.resolver_match.url_name == 'dashboard' %}nav-link-mobile-active{% endif %}">
+                        Boshqaruv Paneli
+                    </a>
+                    <a href="{% url 'grant_application_list' %}" class="nav-link-mobile {% if request.resolver_match.view_name in 'grant_application_list,grant_application_detail,grant_application_create,appeal_create' %}nav-link-mobile-active{% endif %}">
+                        Grant Arizalari
+                    </a>
+                    {% endif %}
+                </div>
                 {% if request.session.api_token and request.session.student_db_id %}
-                <a href="{% url 'dashboard' %}" class="nav-link-mobile {% if request.resolver_match.url_name == 'dashboard' %}nav-link-mobile-active{% endif %}">
-                    Boshqaruv Paneli
-                </a>
-                <a href="{% url 'grant_application_list' %}" class="nav-link-mobile {% if request.resolver_match.view_name in 'grant_application_list,grant_application_detail,grant_application_create,appeal_create' %}nav-link-mobile-active{% endif %}">
-                    Grant Arizalari
-                </a>
-                {% endif %}
-            </div>
-            
-            {% if request.session.api_token and request.session.student_db_id %}
-                <div class="pt-4 pb-3 border-t border-slate-200">
-                    <div class="flex items-center px-5">
-                        <div class="flex-shrink-0">
+                    <div class="pt-4 pb-3 border-t border-slate-200">
+                        <div class="flex items-center px-5">
                             <span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-primary-600 text-white">
                                 <span class="text-md font-medium leading-none">
                                     {{ request.session.username_display|default:"U"|first|upper }}
                                 </span>
                             </span>
-                        </div>
-                        <div class="ml-3">
-                            <div class="text-base font-semibold text-slate-800">
-                                {{ request.session.username_display|default:"Foydalanuvchi" }}
+                            <div class="ml-3">
+                                <div class="text-base font-semibold text-slate-800">
+                                    {{ request.session.username_display|default:"Foydalanuvchi" }}
+                                </div>
                             </div>
                         </div>
-                        <div class="ml-auto">
-                            <!-- Mobil qurilmalar uchun ham bildirishnomalar qo'shish mumkin (hozircha sodda ko'rinishda) -->
+                        <div class="mt-3 space-y-1 px-2">
+                            <a href="{% url 'dashboard' %}" class="nav-link-mobile">Boshqaruv paneli</a>
+                            <a href="{% url 'grant_application_list' %}" class="nav-link-mobile">Mening Arizalarim</a>
+                            <a href="{% url 'logout' %}" class="block rounded-lg px-3 py-2 text-base font-medium text-red-600 hover:bg-red-100 hover:text-red-700">Chiqish</a>
                         </div>
                     </div>
-                    <div class="mt-3 space-y-1 px-2">
-                        <a href="{% url 'dashboard' %}" class="nav-link-mobile">
-                            Boshqaruv paneli
-                        </a>
-                        <a href="{% url 'grant_application_list' %}" class="nav-link-mobile">
-                            Mening Arizalarim
-                        </a>
-                       
-                        <a href="{% url 'logout' %}" class="block rounded-lg px-3 py-2 text-base font-medium text-red-600 hover:bg-red-100 hover:text-red-700">
-                            Chiqish
-                        </a>
+                {% else %}
+                    <div class="py-3 px-2 sm:px-3 border-t border-slate-200">
+                        <a href="{% url 'login' %}" class="block w-full text-center px-4 py-2.5 rounded-lg text-base font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Kirish</a>
                     </div>
-                </div>
-            {% else %}
-                <div class="py-3 px-2 sm:px-3 border-t border-slate-200">
-                    <a href="{% url 'login' %}" class="block w-full text-center px-4 py-2.5 rounded-lg text-base font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">
-                        Kirish
-                    </a>
-                </div>
-            {% endif %}
-        </div>
+                {% endif %}
+            </div>
+        </nav>
     </header>
+    <script>
+        // Ensure main content is always below the sticky header
+        document.addEventListener('DOMContentLoaded', function() {
+            var header = document.querySelector('header.navbar-sticky');
+            var main = document.querySelector('main');
+            if (header && main) {
+                var headerHeight = header.offsetHeight;
+                main.style.paddingTop = headerHeight + 'px';
+            }
+        });
+    </script>
     <!-- Main Content -->
     <main class="flex-grow">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -593,16 +577,15 @@
             },
 
             fetchNotifications() {
-                // Bu yerda sizning API manzilingiz to'g'ri bo'lishi kerak
                 fetch('/api/notifications/', {
                     headers: {
-                        'X-CSRFToken': '{{ csrf_token }}', // Agar kerak bo'lsa
+                        'X-CSRFToken': '{{ csrf_token }}',
                         'Content-Type': 'application/json'
                     }
                 })
                 .then(response => response.json())
                 .then(data => {
-                    this.notifications = data.results || data; // DRF pagination bilan ishlash
+                    this.notifications = data.results || data;
                     this.unreadCount = this.notifications.filter(n => !n.read).length;
                 })
                 .catch(error => console.error('Error fetching notifications:', error));
@@ -619,9 +602,8 @@
             },
 
             goToNotification(notification) {
-                // Hozircha oddiy, kelajakda target obyektga redirect qilish mumkin
                 if (!notification.read) {
-                     fetch(`/api/notifications/${notification.id}/mark_as_read/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' }})
+                    fetch(`/api/notifications/${notification.id}/mark_as_read/`, { method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' }})
                     .then(response => {
                         if (response.ok) {
                             notification.read = true;
@@ -630,7 +612,7 @@
                     });
                 }
                 this.open = false;
-                // Kelajakda: window.location.href = notification.target_url;
+                // window.location.href = notification.target_url; // Kelajakda
             },
 
             timeAgo(isoString) {

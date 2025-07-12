@@ -1,5 +1,5 @@
 # auth_app/models.py
-from decimal import Decimal  # <-- YECHIM UCHUN IMPORT
+from decimal import Decimal, ROUND_HALF_UP  # <-- YECHIM UCHUN IMPORT
 from django.db import models
 from django.utils import timezone
 from django.conf import settings # Foydalanuvchi modelini olish uchun (agar Student o'rniga standart User ishlatilsa)
@@ -8,6 +8,9 @@ from uuid import uuid4 # Unikal fayl nomlari uchun
 import qrcode
 from io import BytesIO
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
+import uuid
 
 # --- Mavjud Student modeli (o'zgarishsiz qoldiriladi) ---
 class Student(models.Model):
@@ -121,6 +124,8 @@ class Student(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqti")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqti")
 
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='student_profile', verbose_name="Foydalanuvchi (User)")
+
     def __str__(self):
         return self.full_name_api or f"{self.last_name or ''} {self.first_name or ''}".strip() or self.username
 
@@ -135,7 +140,7 @@ class Student(models.Model):
             try:
                 dt_object = timezone.datetime.fromtimestamp(self.birth_date_timestamp, tz=timezone.get_current_timezone())
                 return dt_object.strftime('%d-%m-%Y')
-            except (ValueError, TypeError, OSError): # Potensial xatoliklarni ushlash
+            except (ValueError, TypeError, OSError):
                 return "Noma'lum sana (xato)"
         return None
 
@@ -153,25 +158,22 @@ from django.utils import timezone
 
 # --- Mavjud Student modeli (o'zgarishsiz qoldiriladi) ---
 
-def grant_document_path(instance, filename):
-    """Arizaga yuklangan fayllar uchun unikal yo'l yaratadi."""
-    student_id = instance.application.student.student_id_number or instance.application.student.id
-    academic_year = instance.application.academic_year.year.replace('/', '-')
-    _, extension = os.path.splitext(filename)
-    unique_filename = f"{uuid4().hex}{extension}"
-    return f'grants/{academic_year}/{student_id}/documents/{unique_filename}'
+# --- Fayl validatsiyasi uchun yordamchi funksiyalar ---
+def validate_file_size(value):
+    max_size_mb = 5
+    if value.size > max_size_mb * 1024 * 1024:
+        raise ValidationError(_(f"Fayl hajmi {max_size_mb} MB dan oshmasligi kerak."))
 
-def appeal_document_path(instance, filename):
-    """Apellyatsiyaga yuklangan fayllar uchun unikal yo'l yaratadi."""
-    student_id = instance.appeal.application.student.student_id_number or instance.appeal.application.student.id
-    academic_year = instance.appeal.application.academic_year.year.replace('/', '-')
-    _, extension = os.path.splitext(filename)
-    unique_filename = f"{uuid4().hex}{extension}"
-    return f'appeals/{academic_year}/{student_id}/{unique_filename}'
-
+def validate_file_extension(value):
+    import os
+    ext = os.path.splitext(value.name)[1].lower()
+    valid_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']
+    if ext not in valid_extensions:
+        raise ValidationError(_(f"Ruxsat etilgan fayl turlari: {', '.join(valid_extensions)}"))
 
 class AcademicYear(models.Model):
     """O'quv yillarini saqlash uchun model."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     year = models.CharField(
         max_length=9, unique=True, verbose_name="O'quv yili",
         help_text="Format: YYYY/YYYY (masalan, 2024/2025)"
@@ -189,6 +191,8 @@ class AcademicYear(models.Model):
 
 class GrantApplication(models.Model):
     """Talabaning grant uchun bergan arizasini ifodalovchi markaziy model."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     class ApplicationType(models.TextChoices):
         DIFFERENTIATED = 'DIFFERENTIATED', "Tabaqalashtirilgan (qayta taqsimlash)"
         ADDITIONAL_STATE = 'ADDITIONAL_STATE', "Qo'shimcha davlat granti"
@@ -211,38 +215,37 @@ class GrantApplication(models.Model):
         PERCENTAGE = 'PERCENTAGE', "Foizli (OTM granti)"
         NONE = 'NONE', "Grant ajratilmagan"
 
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='grant_applications', verbose_name="Talaba")
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='grant_applications', verbose_name="Talaba")
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.PROTECT, verbose_name="O'quv yili")
     application_type = models.CharField(max_length=20, choices=ApplicationType.choices, verbose_name="Ariza turi")
     status = models.CharField(max_length=30, choices=ApplicationStatus.choices, default=ApplicationStatus.DRAFT, verbose_name="Ariza holati")
     gpa_from_hemis = models.DecimalField(max_digits=4, decimal_places=2, verbose_name="GPA (HEMIS tizimidan)")
-    
     academic_score = models.DecimalField(max_digits=5, decimal_places=2, default=0.0, verbose_name="Akademik ball (maks. 80)")
     social_activity_score = models.DecimalField(max_digits=5, decimal_places=2, default=0.0, verbose_name="Ijtimoiy faollik balli (maks. 20)")
     total_score = models.DecimalField(max_digits=5, decimal_places=2, default=0.0, verbose_name="Umumiy ball (maks. 100)")
-
     final_grant_type = models.CharField(max_length=15, choices=FinalGrantType.choices, blank=True, null=True, verbose_name="Yakuniy grant turi")
     final_grant_percentage = models.PositiveSmallIntegerField(blank=True, null=True, verbose_name="OTM granti foizi (%)", help_text="Faqat 'OTM granti' uchun to'ldiriladi")
     rejection_reason = models.TextField(blank=True, null=True, verbose_name="Rad etish sababi")
-
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan vaqti")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Yangilangan vaqti")
 
+    def clean(self):
+        if self.final_grant_percentage and (self.final_grant_percentage < 0 or self.final_grant_percentage > 100):
+            raise ValidationError({"final_grant_percentage": _(f"Foiz 0-100 oralig'ida bo'lishi kerak.")})
+        if self.total_score > 100:
+            raise ValidationError({"total_score": _(f"Umumiy ball 100 dan oshmasligi kerak.")})
+
     def save(self, *args, **kwargs):
         if self.gpa_from_hemis:
-            self.academic_score = self.gpa_from_hemis * Decimal('16.0') # Har ehtimolga qarshi buni ham Decimal qilamiz
-        
-        # Hisoblashdan oldin turlarni bir xil qilish
+            self.academic_score = (self.gpa_from_hemis * Decimal('16.0')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         academic = self.academic_score or Decimal('0.0')
         social = self.social_activity_score or Decimal('0.0')
-        
-        self.total_score = academic + social
+        self.total_score = (academic + social).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.full_clean()
         super().save(*args, **kwargs)
-    pass
 
     @property
     def is_appealable(self):
-        """Arizaga apellyatsiya berish mumkinligini tekshiradi."""
         final_statuses = [self.ApplicationStatus.APPROVED, self.ApplicationStatus.REJECTED]
         return self.status in final_statuses and not hasattr(self, 'appeal')
 
@@ -258,8 +261,17 @@ class GrantApplication(models.Model):
 
 # auth_app/models.py (ApplicationDocument modelini o'zgartiramiz)
 
+# --- ApplicationDocument ---
+def grant_document_path(instance, filename):
+    student_id = instance.application.student.student_id_number or instance.application.student.id
+    academic_year = instance.application.academic_year.year.replace('/', '-')
+    _, extension = os.path.splitext(filename)
+    unique_filename = f"{uuid4().hex}{extension}"
+    return f'grants/{academic_year}/{student_id}/documents/{unique_filename}'
+
 class ApplicationDocument(models.Model):
     """Talaba tomonidan arizaga ilova qilingan bitta tasdiqlovchi hujjat."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     class EvaluationCriterion(models.TextChoices):
         # 2-ilovadagi 11 ta mezon uchun tanlovlar
@@ -292,10 +304,26 @@ class ApplicationDocument(models.Model):
         verbose_name="Hujjatning qisqacha tavsifi",
         help_text="Masalan, 'Respublika fan olimpiadasi diplomi, 1-o'rin'"
     )
-    file = models.FileField(upload_to=grant_document_path, verbose_name="Hujjat fayli")
+    file = models.FileField(upload_to=grant_document_path, verbose_name="Hujjat fayli", validators=[validate_file_size, validate_file_extension])
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self): return f"{self.get_evaluation_criterion_display()} - {self.application.student}"
+    def clean(self):
+        super().clean()
+        # Faqat tabaqalashtirilgan grant uchun mezon/fayl unikal bo'lishi kerak
+        if self.application and self.application.application_type == GrantApplication.ApplicationType.DIFFERENTIATED:
+            qs = ApplicationDocument.objects.filter(
+                application=self.application,
+                evaluation_criterion=self.evaluation_criterion
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError({
+                    'evaluation_criterion': _(f"Ushbu mezon uchun allaqachon hujjat yuklangan.")
+                })
+
+    def __str__(self):
+        return f"{self.get_evaluation_criterion_display()} - {self.application.student}"
     
     class Meta:
         verbose_name = "Arizaga ilova qilingan hujjat"
@@ -308,6 +336,8 @@ class SocialActivityEvaluation(models.Model):
     Nizomning 2-ilovasidagi "MEZONLAR" asosida talabaning ijtimoiy faolligini baholash varaqasi.
     Ushbu model komissiya a'zolari tomonidan to'ldiriladi.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     # --- Mezonlar uchun maksimal ball konstatalari ---
     MAX_POINTS_READING = 20
     MAX_POINTS_INITIATIVES = 20
@@ -324,23 +354,27 @@ class SocialActivityEvaluation(models.Model):
     application = models.OneToOneField(GrantApplication, on_delete=models.CASCADE, related_name='social_evaluation', verbose_name="Ariza")
 
     # --- Nizom 2-ilovasidagi 11 ta mezon uchun baholash maydonlari ---
-    reading_culture_points = models.PositiveSmallIntegerField(default=0, verbose_name="1. Kitobxonlik madaniyati", help_text=f"Maksimal ball: {MAX_POINTS_READING}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_READING)])
-    five_initiatives_points = models.PositiveSmallIntegerField(default=0, verbose_name="2. “5 muhim tashabbus” doirasidagi to‘garaklarda faol ishtiroki", help_text=f"Maksimal ball: {MAX_POINTS_INITIATIVES}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_INITIATIVES)])
-    academic_progress_bonus_points = models.PositiveSmallIntegerField(default=0, verbose_name="3. Talabaning akademik o‘zlashtirishi", help_text=f"Maksimal ball: {MAX_POINTS_ACADEMIC_BONUS}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_ACADEMIC_BONUS)])
-    ethics_adherence_points = models.PositiveSmallIntegerField(default=0, verbose_name="4. Talabaning oliy ta’lim tashkilotining ichki tartib qoidalari va Odob-axloq kodeksiga rioya etishi", help_text=f"Maksimal ball: {MAX_POINTS_ETHICS}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_ETHICS)])
-    competition_results_points = models.PositiveSmallIntegerField(default=0, verbose_name="5. Xalqaro, respublika, viloyat miqyosidagi ko‘rik-tanlov, fan olimpiadalari va sport musobaqalarida erishgan natijalari", help_text=f"Maksimal ball: {MAX_POINTS_COMPETITION}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_COMPETITION)])
-    attendance_points = models.PositiveSmallIntegerField(default=0, verbose_name="6. Talabaning darslarga to‘liq va kechikmasdan kelishi", help_text=f"Maksimal ball: {MAX_POINTS_ATTENDANCE}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_ATTENDANCE)])
-    enlightenment_lessons_points = models.PositiveSmallIntegerField(default=0, verbose_name="7. Talabalarning “Ma’rifat darslari”dagi faol ishtiroki", help_text=f"Maksimal ball: {MAX_POINTS_ENLIGHTENMENT}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_ENLIGHTENMENT)])
-    volunteering_points = models.PositiveSmallIntegerField(default=0, verbose_name="8. Volontyorlik va jamoat ishlaridagi faolligi", help_text=f"Maksimal ball: {MAX_POINTS_VOLUNTEERING}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_VOLUNTEERING)])
-    cultural_events_points = models.PositiveSmallIntegerField(default=0, verbose_name="9. Teatr va muzey, xiyobon, kino, tarixiy qadamjolarga tashriflar", help_text=f"Maksimal ball: {MAX_POINTS_CULTURAL}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_CULTURAL)])
-    sports_lifestyle_points = models.PositiveSmallIntegerField(default=0, verbose_name="10. Talabalarning sport bilan shug‘ullanishi va sog‘lom turmush tarziga amal qilishi", help_text=f"Maksimal ball: {MAX_POINTS_SPORTS}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_SPORTS)])
-    other_activities_points = models.PositiveSmallIntegerField(default=0, verbose_name="11. Ma’naviy-ma’rifiy sohaga oid boshqa yo‘nalishlardagi faolligi", help_text=f"Maksimal ball: {MAX_POINTS_OTHER}", validators=[MinValueValidator(0), MaxValueValidator(MAX_POINTS_OTHER)])
+    reading_culture_points = models.PositiveSmallIntegerField(default=0, verbose_name="1. Kitobxonlik madaniyati", help_text="Maksimal ball: 20", validators=[MinValueValidator(0), MaxValueValidator(20)])
+    five_initiatives_points = models.PositiveSmallIntegerField(default=0, verbose_name="2. “5 muhim tashabbus” doirasidagi to‘garaklarda faol ishtiroki", help_text="Maksimal ball: 20", validators=[MinValueValidator(0), MaxValueValidator(20)])
+    academic_progress_bonus_points = models.PositiveSmallIntegerField(default=0, verbose_name="3. Talabaning akademik o‘zlashtirishi", help_text="Maksimal ball: 10", validators=[MinValueValidator(0), MaxValueValidator(10)])
+    ethics_adherence_points = models.PositiveSmallIntegerField(default=0, verbose_name="4. Talabaning oliy ta’lim tashkilotining ichki tartib qoidalari va Odob-axloq kodeksiga rioya etishi", help_text="Maksimal ball: 5", validators=[MinValueValidator(0), MaxValueValidator(5)])
+    competition_results_points = models.PositiveSmallIntegerField(default=0, verbose_name="5. Xalqaro, respublika, viloyat miqyosidagi ko‘rik-tanlov, fan olimpiadalari va sport musobaqalarida erishgan natijalari", help_text="Maksimal ball: 10", validators=[MinValueValidator(0), MaxValueValidator(10)])
+    attendance_points = models.PositiveSmallIntegerField(default=0, verbose_name="6. Talabaning darslarga to‘liq va kechikmasdan kelishi", help_text="Maksimal ball: 5", validators=[MinValueValidator(0), MaxValueValidator(5)])
+    enlightenment_lessons_points = models.PositiveSmallIntegerField(default=0, verbose_name="7. Talabalarning “Ma’rifat darslari”dagi faol ishtiroki", help_text="Maksimal ball: 10", validators=[MinValueValidator(0), MaxValueValidator(10)])
+    volunteering_points = models.PositiveSmallIntegerField(default=0, verbose_name="8. Volontyorlik va jamoat ishlaridagi faolligi", help_text="Maksimal ball: 5", validators=[MinValueValidator(0), MaxValueValidator(5)])
+    cultural_events_points = models.PositiveSmallIntegerField(default=0, verbose_name="9. Teatr va muzey, xiyobon, kino, tarixiy qadamjolarga tashriflar", help_text="Maksimal ball: 5", validators=[MinValueValidator(0), MaxValueValidator(5)])
+    sports_lifestyle_points = models.PositiveSmallIntegerField(default=0, verbose_name="10. Talabalarning sport bilan shug‘ullanishi va sog‘lom turmush tarziga amal qilishi", help_text="Maksimal ball: 5", validators=[MinValueValidator(0), MaxValueValidator(5)])
+    other_activities_points = models.PositiveSmallIntegerField(default=0, verbose_name="11. Ma’naviy-ma’rifiy sohaga oid boshqa yo‘nalishlardagi faolligi", help_text="Maksimal ball: 5", validators=[MinValueValidator(0), MaxValueValidator(5)])
     
     # --- Baholovchi uchun qo'shimcha ma'lumotlar ---
     evaluator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Baholovchi (komissiya a'zosi)", help_text="Admin panelida avtomatik belgilanadi")
     evaluator_comment = models.TextField(blank=True, verbose_name="Baholovchi izohi", help_text="Ballarni asoslash uchun qo'shimcha izohlar")
     evaluation_date = models.DateTimeField(null=True, blank=True, verbose_name="Baholangan sana")
 
+    def clean(self):
+        total = self.total_raw_score
+        if total > 100:
+            raise ValidationError(_(f"Jami ball 100 dan oshmasligi kerak."))
 
     @property
     def total_raw_score(self):
@@ -361,21 +395,32 @@ class SocialActivityEvaluation(models.Model):
         return Decimal(self.total_raw_score) / Decimal('5.0')
 
     def save(self, *args, **kwargs):
-        # Bu yerdagi qiymat endi `Decimal` bo'ladi
-        self.application.social_activity_score = self.final_score 
-        self.application.save() # Asosiy arizadagi ballarni yangilash
-        if self.evaluator and not self.evaluation_date: self.evaluation_date = timezone.now()
+        self.clean()
+        self.application.social_activity_score = self.final_score
+        self.application.save()
+        if self.evaluator and not self.evaluation_date:
+            self.evaluation_date = timezone.now()
         super().save(*args, **kwargs)
 
-    def __str__(self): return f"Baholash varaqasi (Ariza #{self.application.id})"
+    def __str__(self):
+        return f"Baholash varaqasi (Ariza #{self.application.id})"
     
     class Meta:
         verbose_name = "Ijtimoiy faollikni baholash"
         verbose_name_plural = "Ijtimoiy faollikni baholashlar"
 
 
+def appeal_document_path(instance, filename):
+    student_id = instance.appeal.application.student.student_id_number or instance.appeal.application.student.id
+    academic_year = instance.appeal.application.academic_year.year.replace('/', '-')
+    _, extension = os.path.splitext(filename)
+    unique_filename = f"{uuid4().hex}{extension}"
+    return f'appeals/{academic_year}/{student_id}/{unique_filename}'
+
 class Appeal(models.Model):
     """Nizomning 20-bandiga muvofiq, apellyatsiya arizalarini saqlash uchun model."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     class AppealStatus(models.TextChoices):
         SUBMITTED = 'SUBMITTED', "Topshirilgan"
         REVIEWING = 'REVIEWING', "Ko'rib chiqilmoqda"
@@ -409,9 +454,11 @@ class Appeal(models.Model):
 
 class AppealDocument(models.Model):
     """Apellyatsiya arizasiga ilova qilingan qo'shimcha tasdiqlovchi hujjat."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     appeal = models.ForeignKey(Appeal, on_delete=models.CASCADE, related_name='documents', verbose_name="Apellyatsiya arizasi")
     description = models.CharField(max_length=255, verbose_name="Qisqacha tavsif")
-    file = models.FileField(upload_to=appeal_document_path, verbose_name="Hujjat fayli")
+    file = models.FileField(upload_to=appeal_document_path, verbose_name="Hujjat fayli", validators=[validate_file_size, validate_file_extension]) # type: ignore
     uploaded_at = models.DateTimeField(auto_now_add=True)
     def __str__(self): return f"{self.description} (Apellyatsiya #{self.appeal.id})"
     class Meta:
@@ -429,6 +476,8 @@ class Notification(models.Model):
     Tizim bo'yicha foydalanuvchilarga yuboriladigan bildirishnomalar uchun model.
     GenericForeignKey yordamida har qanday modelga (Ariza, Apellyatsiya) bog'lana oladi.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
     class NotificationVerb(models.TextChoices):
         APPLICATION_SUBMITTED = 'APPLICATION_SUBMITTED', "Yangi ariza topshirildi"
         STATUS_CHANGED = 'STATUS_CHANGED', "Holat o'zgardi"
@@ -465,3 +514,4 @@ class Notification(models.Model):
         verbose_name = "Bildirishnoma"
         verbose_name_plural = "Bildirishnomalar"
         ordering = ['-timestamp']
+

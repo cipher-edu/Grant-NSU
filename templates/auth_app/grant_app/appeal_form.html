@@ -32,14 +32,61 @@
         <div class="bg-white p-6 rounded-xl shadow-soft border border-slate-100">
              <h3 class="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-3 mb-4">2. Qo'shimcha dalillarni yuklang (ixtiyoriy)</h3>
             {{ formset.management_form }}
-            {# Bu yerga `application_form.html` dagi formset logikasi deyarli bir xil ko'chirib o'tkaziladi, faqat prefix o'zgaradi ('appeal_docs') #}
+            {% if formset.non_form_errors %}
+                <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                    {% for error in formset.non_form_errors %}
+                        <div>{{ error }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
             <div id="document-formset" class="space-y-4">
-                {% for form in formset %}
+                {% for doc_form in formset %}
                 <div class="document-form p-4 border border-slate-200 rounded-lg relative">
-                     {# ... Formset ichi ... #}
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label for="{{ doc_form.description.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">{{ doc_form.description.label }}</label>
+                            {{ doc_form.description }}
+                            {% if doc_form.description.errors %}<p class="text-red-500 text-xs mt-1">{{ doc_form.description.errors.0 }}</p>{% endif %}
+                        </div>
+                        <div>
+                            <label for="{{ doc_form.file.id_for_label }}" class="block text-sm font-medium text-slate-700 mb-1">{{ doc_form.file.label }}</label>
+                            {{ doc_form.file }}
+                            <div class="file-preview mt-2"></div>
+                            <small class="text-xs text-slate-400">Ruxsat etilgan: PDF, JPG, PNG, DOC, DOCX. Maks: 5MB</small>
+                            {% if doc_form.file.errors %}<p class="text-red-500 text-xs mt-1">{{ doc_form.file.errors.0 }}</p>{% endif %}
+                        </div>
+                    </div>
+                    {% if formset.can_delete %}
+                        <div class="absolute top-2 right-2">
+                            <button type="button" onclick="removeForm(this)" class="remove-form-btn text-slate-400 hover:text-red-500 transition-colors" title="Ushbu hujjatni o'chirish">
+                                <ion-icon name="trash-outline" class="text-lg"></ion-icon>
+                            </button>
+                            {{ doc_form.DELETE }}
+                        </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
+            <template id="empty-form-template">
+                <div class="document-form p-4 border border-slate-200 rounded-lg relative transition-all">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label for="id_appeal_docs-__prefix__-description" class="block text-sm font-medium text-slate-700 mb-1">Hujjat tavsifi</label>
+                            {{ formset.empty_form.description }}
+                        </div>
+                        <div>
+                            <label for="id_appeal_docs-__prefix__-file" class="block text-sm font-medium text-slate-700 mb-1">Faylni tanlang</label>
+                            {{ formset.empty_form.file }}
+                        </div>
+                    </div>
+                    <div class="absolute top-2 right-2">
+                        <button type="button" onclick="removeForm(this)" class="remove-form-btn text-slate-400 hover:text-red-500 transition-colors" title="Ushbu hujjatni o'chirish">
+                            <ion-icon name="trash-outline" class="text-lg"></ion-icon>
+                        </button>
+                        {{ formset.empty_form.DELETE }}
+                    </div>
+                </div>
+            </template>
             <button type="button" id="add-form-btn" class="mt-4 inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-800">
                 <ion-icon name="add-outline" class="mr-1"></ion-icon>
                 Yana hujjat qo'shish

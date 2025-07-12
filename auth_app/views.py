@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.core.cache import cache
 from django.http import Http404, HttpResponseForbidden
 from django.utils.decorators import method_decorator
+import uuid
 
 from .forms import LoginForm
 from .models import *
@@ -366,14 +367,14 @@ def application_list_view(request):
     return render(request, 'auth_app/grant_app/application_list.html', context)
 
 @custom_login_required_with_token_refresh
-def application_detail_view(request, pk):
+def application_detail_view(request, pk: uuid.UUID):
     """Bitta grant arizasining batafsil ma'lumotlarini ko'rsatish."""
     student = request.current_student
     application = get_object_or_404(
         GrantApplication.objects.select_related(
             'academic_year', 'social_evaluation', 'appeal'
         ).prefetch_related('documents', 'appeal__documents'),
-        pk=pk
+        id=pk
     )
 
     if application.student != student:
@@ -441,7 +442,7 @@ def application_create_view(request):
 
             logger.info(f"Student {student.username} (ID: {student.id}) successfully created application #{application.id}")
             messages.success(request, "Arizangiz va unga ilova qilingan hujjatlar muvaffaqiyatli yuborildi!")
-            return redirect('grant_application_detail', pk=application.pk)
+            return redirect('grant_application_detail', pk=application.id)
         else:
             messages.error(request, "Formani to'ldirishda xatoliklar mavjud. Iltimos, tekshirib qayta urinib ko'ring.")
     else:
@@ -458,14 +459,14 @@ def application_create_view(request):
 
 @custom_login_required_with_token_refresh
 @transaction.atomic
-def appeal_create_view(request, application_pk):
+def appeal_create_view(request, application_pk: uuid.UUID):
     """Apellyatsiya arizasi yaratish sahifasi."""
     student = request.current_student
-    application = get_object_or_404(GrantApplication, pk=application_pk)
+    application = get_object_or_404(GrantApplication, id=application_pk)
 
     if not application.is_appealable or application.student != student:
         messages.error(request, "Bu ariza uchun apellyatsiya berish mumkin emas yoki ruxsatingiz yo'q.")
-        return redirect('grant_application_detail', pk=application.pk)
+        return redirect('grant_application_detail', pk=application.id)
 
     if request.method == 'POST':
         form = AppealForm(request.POST)
@@ -488,7 +489,7 @@ def appeal_create_view(request, application_pk):
 
             logger.info(f"Student {student.username} created an appeal for application #{application.id}")
             messages.success(request, "Apellyatsiya arizangiz muvaffaqiyatli qabul qilindi.")
-            return redirect('grant_application_detail', pk=application.pk)
+            return redirect('grant_application_detail', pk=application.id)
         else:
             messages.error(request, "Apellyatsiya formasini to'ldirishda xatoliklar mavjud.")
     else:
@@ -498,7 +499,7 @@ def appeal_create_view(request, application_pk):
     context = {
         'form': form,
         'formset': formset,
-        'application': application,
-        'student': student
+        'student': student,
+        'application': application
     }
     return render(request, 'auth_app/grant_app/appeal_form.html', context)
